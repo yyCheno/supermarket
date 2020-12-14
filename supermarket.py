@@ -1,12 +1,13 @@
 """
 # _*_ coding: utf-8 _*_
-# @Time : 2020/12/6 20:02
+# @Time : 2020/12/14 14:57
 # @Author :
-# @Version：V 3.2
+# @Version：V 4.7
 # @File : supermarket.py
-# @desc :修复大量问题，重构促销功能逻辑
+# @desc :修复了漏洞
 """
 import threading
+from decimal import Decimal
 import pandas as pd
 import prettytable as pt
 import re
@@ -55,8 +56,10 @@ def listItems(dic):
            将数据字典转换成可输出的可视化表格
     """
     tb = pt.PrettyTable()  # 使用perettytable库完成可视化工作
-    tb.field_names = ["Ident", " Product", "Price", "Amount"]  # 指定列名
+    tb.field_names = ["Ident", "Product", "Price", "Amount"]  # 指定列名
     tb.align["Price"] = "r"  # 该列右对齐
+    tb.align['Product'] = "l"
+    tb.align["Amount"] = 'c'
     if dic == {}: return tb  # 空字典直接返回
     ident_list = sorted(dic.keys())
     for ident in ident_list:
@@ -197,15 +200,19 @@ def getBill(basket):
         price = int(basket[ident]['price'] * 100000)
         conut = int(basket[ident]['amount'] * 100000)
         result = price * conut / 10000000000
-        total = (int(total * 100000) + int(result * 100000)) / 100000  # 统计总金额
+        total = (int(total* 100000) + int(Decimal(str(result)) * 100000)) / 100000  # 统计总金额
         if len(str(result).split(".")[1]) <= 1: result = format(result,".2f")
         row.append(str(result) + " £")
         tb.add_row(row)
         if free_rows.get(ident) != None:  # 如果该商品有优惠信息
             tb.add_row(free_rows[ident])
+    if total==0 : total = format(total, ".2f")
     if len(str(total).split(".")[1]) <= 1: total = format(total, ".2f")
     total = str(total) + " £"
-    msg = "Here is your shopping bill:\n" + str(tb) + "\nTOTAL:" + total
+    index = str(tb).index("\n")
+    length = len("TOTAL:")+len(total)
+    line = index-length
+    msg = "Here is your shopping bill:\n" + str(tb) + "\nTOTAL:" +" "*line + total
     return msg
 
 def applyPromotions(basket):
@@ -306,8 +313,8 @@ def main():
     TODO: include a docstring
     """
 
-    stock = loadStockFromFile("data/stock.csv")
-    basket = loadStockFromFile("data/stock.csv")
+    stock = loadStockFromFile()
+    basket = {}
     print("*" * 75)
     print("*" * 15 + " " * 10 + "WELCOME TO STEFAN EXPRESS" + " " * 10 + "*" * 15)
     print("*" * 75, "\n")
@@ -333,6 +340,9 @@ def main():
                 i = input("\nIf you want to back please input 'back'.\nHow many units " + stock[int(s)][
                     "unit"] + " do you want to add to your basket?: ")  # 有的话则询问下一步
                 if i == "back": break  # 用户退出二级菜单
+                if i == "0" :
+                    print("Sucess")
+                    break
                 if check_number(i) != True:
                     print("Illegal input,need a int or float type")
                     continue
