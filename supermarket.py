@@ -1,8 +1,8 @@
 """
 # _*_ coding: utf-8 _*_
-# @Time : 2020/12/14 14:57
-# @Author :
-# @Version：V 4.7
+# @Time : 2020/12/14 21:36
+# @Author :刘镇图
+# @Version：V 5.0
 # @File : supermarket.py
 # @desc :修复了漏洞
 """
@@ -23,7 +23,7 @@ def loadStockFromFile(filename="stock.csv"):
         filename - 文件列表
 
         disc:
-        获取文件列表所有文件，转换成一个josn格式字典
+        获取文件列表所有文件，预处理数据，使所有数据符合要求，转换成一个题给要求的格式字典返回
     """
     stock_data = pd.read_csv(filename, header=None, index_col=0,
                              names=["name", "price", "unit", "promotion", "group", "amount"], sep="|")  # 读取csv文件
@@ -53,7 +53,7 @@ def listItems(dic):
            dic - 数据字典
 
            disc:
-           将数据字典转换成可输出的可视化表格
+           将数据按ident重排序并转换成可输出的可视化表格
     """
     tb = pt.PrettyTable()  # 使用perettytable库完成可视化工作
     tb.field_names = ["Ident", "Product", "Price", "Amount"]  # 指定列名
@@ -83,7 +83,7 @@ def searchStock(stock, s):
            stock - 仓库数据字典
            s -  搜索关键字
            disc:
-           从库存中模糊搜索出与关键字匹配的结果，不区分大小写
+           从库存中模糊搜索出与关键字匹配的结果，不区分大小写，返回一个结果字典
     '''
     substock = {}
     for ident in stock:
@@ -105,7 +105,7 @@ def addToBasket(stock, basket, ident, amount):
 
            amount - 处理数量
            disc:
-           实现从仓库与购物篮子之间互相转移商品
+           实现从仓库与购物篮子之间互相转移商品，通过加锁操作保证数据原子性
     """
 
     def check_unit(stock, basket):
@@ -137,7 +137,7 @@ def addToBasket(stock, basket, ident, amount):
         msg = "Cannot add this many " + stock[ident]['unit'] + " to the basket, only added " + str(stock_amount) + " " + \
               stock[ident]['unit']
         lock.release()
-        return msg
+        return msg+"\n"
     if amount < 0 and basket[ident]['amount'] >= abs(amount):
         basket[ident]['amount'] = (int(basket[ident]['amount'] * 100000) - int(abs(amount) * 100000)) / 100000
         stock[ident]['amount'] = (int(stock[ident]['amount'] * 100000) + int(abs(amount) * 100000)) / 100000
@@ -155,7 +155,7 @@ def addToBasket(stock, basket, ident, amount):
               basket[ident]['unit']
         if (basket[ident]['amount'] == 0): del basket[ident]
         lock.release()
-        return msg
+        return msg+"\n"
 
 def prepareCheckout(basket):
     """
@@ -181,7 +181,7 @@ def getBill(basket):
            basket    - 购物篮子数据字典
 
            disc:
-           根据购物篮子的信息，计算优惠后形成账单
+           根据购物篮子的信息，计算优惠后形成账单，返回可输出的可视化的账单表格
     '''
     tb = pt.PrettyTable()
     tb.field_names = ["Product", "Price", "Amount", "Payable"]
@@ -190,7 +190,8 @@ def getBill(basket):
     tb.align["Payable"] = "r"
     global total
     free_rows = applyPromotions(basket)  # 获取优惠列表
-    for ident in basket:
+    ident_list = sorted(basket.keys())
+    for ident in ident_list:
         row = []
         row.append(basket[ident]['name'])
         row.append(str(format(basket[ident]['price'], ".2f")) + " £")
@@ -223,7 +224,7 @@ def applyPromotions(basket):
            basket    - 购物篮子数据字典
 
            disc:
-           根据优惠信息计算出该购物篮子的优惠情况，同时该情况可以保证商家获取的是最大利润
+           根据优惠信息计算出该购物篮子的优惠情况，同时该情况可以保证商家获取的是最大利润，返回优惠信息
     """
 
     rows = {}  # 可以免减的商品及其数量字典，格式为上述可视化表格的格式
@@ -310,7 +311,17 @@ def check_number(s):
 # Task 7
 def main():
     """
-    TODO: include a docstring
+    *** 输入0：列出用户购物篮子数据
+    *** 输入1：结账
+    *** 输入一个正整数：** 如果该正整数为商品ident，则认为用湖想要对该商品进行一些操作，进入二级菜单：
+                        *  输入"back"：用户退出二级菜单，返回上一级
+                        *  输入正数：用户将商品加入购物篮子，同时，系统会对输入数据类型进行检验，商品单位为块的应当为正正数，反之为浮点数
+                        *  输入负数：用户将商品从购物篮子移除，重新返回库存，检验规则上同
+                        *  输入0：无操作
+                        *  输入其他类型：判断为非法输入，要求输入符合格式的数据
+                      ** 如果不是商品ident，提示本超市并未售卖该商品，并返回。
+    *** 输入一个负数：判断为非法输入
+    *** 输入其他：以输入数据为关键词，搜索库存中的商品。
     """
 
     stock = loadStockFromFile()
